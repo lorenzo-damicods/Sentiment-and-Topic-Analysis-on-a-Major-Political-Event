@@ -1,0 +1,13 @@
+# Python dependencies for the "Trump Assassination Attempt" NLP Project
+
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+gensim
+nltk
+spacy
+transformers
+torch
+wordcloud
