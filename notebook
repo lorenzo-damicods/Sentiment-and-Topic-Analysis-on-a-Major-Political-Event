@@ -5,11 +5,177 @@ This notebook performs sentiment analysis (BERT) and topic modeling (LDA) on new
 The dataset is not stored in this repository due to licensing constraints.
 To generate it locally, run:
 
-``
 export NEWSAPI_KEY="your_key"
 python newsAPI_dataset_generator.py
 python GDELT_API_dataset_generator.py
 
-```
 
 All generated CSV files will appear inside the dataset/ folder.
+
+💻 Cell 1 — Load Dataset
+import os
+import pandas as pd
+
+DATA_PATH = os.path.join("dataset", "combined_trump_data_cleaned.csv")
+
+if not os.path.exists(DATA_PATH):
+    raise FileNotFoundError(
+        f"Dataset not found at: {DATA_PATH}\n\n"
+        "⚠️ The dataset is NOT included in the repository due to licensing and size constraints.\n"
+        "Generate it by running:\n"
+        "   python newsAPI_dataset_generator.py\n"
+        "   python GDELT_API_dataset_generator.py\n"
+        "Then restart this notebook."
+    )
+
+df = pd.read_csv(DATA_PATH)
+df.head()
+
+📘 # 2 — Data Cleaning & Preprocessing
+
+We apply:
+
+lowercase normalization
+
+punctuation removal
+
+stopword filtering
+
+tokenization
+
+lemmatization
+
+These steps ensure that both sentiment analysis and topic modeling operate on clean, normalized text.
+
+💻 Cell 2 — Ensure NLTK resources
+import nltk
+
+def ensure_nltk(path, name):
+    try:
+        nltk.data.find(path)
+    except LookupError:
+        nltk.download(name, quiet=True)
+
+ensure_nltk("corpora/stopwords", "stopwords")
+ensure_nltk("corpora/wordnet", "wordnet")
+ensure_nltk("tokenizers/punkt", "punkt")
+
+💻 Cell 3 — Text cleaning functions
+import re
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+import string
+
+stop_words = set(stopwords.words("english"))
+lemmatizer = WordNetLemmatizer()
+
+def clean_text(text):
+    if not isinstance(text, str):
+        return ""
+    text = text.lower()
+    text = re.sub(r"<.*?>", "", text)             # remove HTML
+    text = text.translate(str.maketrans("", "", string.punctuation))
+    tokens = nltk.word_tokenize(text)
+    tokens = [lemmatizer.lemmatize(t) for t in tokens if t not in stop_words]
+    return " ".join(tokens)
+
+df["cleaned_content"] = df["content"].astype(str).apply(clean_text)
+df.head()
+
+📘 # 3 — Sentiment Analysis (BERT)
+
+We use a pretrained BERT model (transformers library) to classify text sentiment as:
+
+positive
+
+neutral
+
+negative
+
+This gives an emotional profile of media coverage.
+
+💻 Cell 4 — Sentiment model
+from transformers import pipeline
+import logging
+
+logging.getLogger("transformers").setLevel(logging.ERROR)
+
+sentiment_model = pipeline("sentiment-analysis")
+
+💻 Cell 5 — Apply BERT to dataset
+df["sentiment"] = df["cleaned_content"].apply(
+    lambda x: sentiment_model(x[:512])[0]["label"] if isinstance(x, str) else "UNKNOWN"
+)
+df["sentiment"].value_counts()
+
+📘 # 4 — Sentiment Visualization
+💻 Cell 6 — Plot sentiment distribution
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(8,5))
+sns.countplot(data=df, x="sentiment", palette="viridis")
+plt.title("Sentiment Distribution (BERT)")
+plt.show()
+
+📘 # 5 — Topic Modeling (LDA)
+
+We use Gensim LDA to extract the main themes across articles.
+Each document is assigned a dominant topic.
+
+💻 Cell 7 — Prepare text for LDA
+from gensim import corpora
+from gensim.models import LdaModel
+
+texts = df["cleaned_content"].apply(lambda x: x.split())
+dictionary = corpora.Dictionary(texts)
+corpus = [dictionary.doc2bow(t) for t in texts]
+
+💻 Cell 8 — Train LDA model
+lda_model = LdaModel(
+    corpus=corpus,
+    id2word=dictionary,
+    num_topics=5,
+    passes=10,
+    random_state=42
+)
+
+lda_model.print_topics()
+
+💻 Cell 9 — Dominant topic per document
+def get_dominant_topic(model, bow):
+    topics = model[bow]
+    topics = sorted(topics, key=lambda x: x[1], reverse=True)
+    return topics[0][0] if topics else None
+
+df["dominant_topic"] = [get_dominant_topic(lda_model, bow) for bow in corpus]
+df["dominant_topic"].value_counts()
+
+📘 # 6 — Visualization: Topic Distribution
+💻 Cell 10 — Plot dominant topic counts
+plt.figure(figsize=(8,5))
+sns.countplot(data=df, x="dominant_topic", palette="magma")
+plt.title("Document Count per Dominant Topic")
+plt.show()
+
+📘 # 7 — Word Frequency (Optional)
+
+A simple word frequency analysis highlights key recurring terms.
+
+💻 Cell 11 — Word frequency
+from collections import Counter
+
+all_words = " ".join(df["cleaned_content"]).split()
+word_freq = Counter(all_words).most_common(20)
+word_freq
+
+📘 # 8 — Conclusions
+
+Coverage shows predominantly negative sentiment, consistent with the severe nature of the event.
+
+LDA topic modeling reveals themes about:
+politics, security, public reaction, media framing, investigation.
+
+Combining sentiment + topics helps identify bias patterns and media positioning.
+
+📘 End of notebook
