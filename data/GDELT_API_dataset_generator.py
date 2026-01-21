@@ -1,94 +1,138 @@
+import os
+import time
+import string
 import requests
 import pandas as pd
+
 import nltk
-import string
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 
-# Download the necessary NLTK resources
-nltk.download('punkt')
-nltk.download('stopwords')
 
-# Cleaning and Tokenizing the text
-def preprocess_text(text):
-    """Cleans and tokenizes the text."""
-    text = text.lower().translate(str.maketrans('', '', string.punctuation))
-    tokens = nltk.word_tokenize(text)
-    tokens = [word for word in tokens if word not in nltk.corpus.stopwords.words('english')]
-    return tokens
+GDELT_BASE_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
 
-# API GDELT parameters
-gdelt_base_url = 'https://api.gdeltproject.org/api/v2/doc/doc'
-gdelt_queries = [
-    'Trump shooting rally',
-    'Trump assassination attempt',
-    'Trump Pennsylvania rally 2024',
-    'Trump July 2024 news',
-    'Trump rally protest',
-    'Trump Pennsylvania news',
-    'Trump July 2024 incident',
-    'Trump rally media coverage',
-    'Trump security breach',
-    'Trump rally attack',
-    'Trump rally 2024 analysis',
-    'Trump rally response 2024'
+DEFAULT_QUERIES = [
+    "Trump shooting rally",
+    "Trump assassination attempt",
+    "Trump Pennsylvania rally 2024",
+    "Trump July 2024 news",
+    "Trump rally protest",
+    "Trump Pennsylvania news",
+    "Trump July 2024 incident",
+    "Trump rally media coverage",
+    "Trump security breach",
+    "Trump rally attack",
+    "Trump rally 2024 analysis",
+    "Trump rally response 2024",
 ]
 
-def collect_data_from_gdelt():
-    """Collects data from the GDELT API for each specified query."""
-    all_articles = pd.DataFrame()
-    
-    for query in gdelt_queries:
-        params = {
-            'query': query,
-            'mode': 'ArtList',
-            'maxrecords': 250,
-            'format': 'json'
-        }
-        try:
-            response = requests.get(gdelt_base_url, params=params)
-            response.raise_for_status()  # Check for any HTTP errors
-            data = response.json()
-            if 'articles' in data:
-                articles = pd.DataFrame(data['articles'])
-                all_articles = pd.concat([all_articles, articles], ignore_index=True)
-        except requests.exceptions.HTTPError as http_err:
-            print(f"HTTP error occurred: {http_err} for query '{query}'")
-        except Exception as err:
-            print(f"Other error occurred: {err} for query '{query}'")
-    
-    return all_articles
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+OUTPUT_CSV = os.path.join(DATA_DIR, "combined_trump_data_cleaned.csv")
 
-def combine_and_clean_data(new_data):
-    """Combines and cleans the new data with the existing dataset."""
+
+def ensure_nltk():
     try:
-        existing_data = pd.read_csv('/path/to/your/dataset/combined_trump_data_cleaned.csv')
-    except FileNotFoundError:
-        existing_data = pd.DataFrame()
-    
-    # Combining with existing data
-    combined_data = pd.concat([existing_data, new_data], ignore_index=True)
-    
-    # Removing duplicates by 'url'
-    combined_data.drop_duplicates(subset='url', inplace=True)
-    
-    # Cleaning the data by removing missing rows
-    combined_data.dropna(subset=['url', 'title', 'content'], inplace=True)
-    
-    # Save the dataset
-    combined_data.to_csv('/path/to/your/dataset/combined_trump_data_cleaned.csv', index=False)
-    print(f"Combined data saved to combined_trump_data_cleaned.csv with {combined_data.shape[0]} total articles.")
-    
-    return combined_data
+        nltk.data.find("tokenizers/punkt")
+    except LookupError:
+        nltk.download("punkt", quiet=True)
 
-# Main function to collect and process data
+    try:
+        nltk.data.find("corpora/stopwords")
+    except LookupError:
+        nltk.download("stopwords", quiet=True)
+
+
+def preprocess_text(text: str):
+    if not isinstance(text, str):
+        return []
+    text = text.lower().translate(str.maketrans("", "", string.punctuation))
+    tokens = word_tokenize(text)
+    sw = set(stopwords.words("english"))
+    tokens = [w for w in tokens if w not in sw]
+    return tokens
+
+
+def fetch_gdelt_articles(query: str, maxrecords: int = 250, timeout: int = 30) -> pd.DataFrame:
+    params = {
+        "query": query,
+        "mode": "ArtList",
+        "maxrecords": maxrecords,
+        "format": "json",
+    }
+
+    r = requests.get(GDELT_BASE_URL, params=params, timeout=timeout)
+    r.raise_for_status()
+    data = r.json()
+
+    articles = data.get("articles", [])
+    if not articles:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(articles)
+    df["query_used"] = query
+    return df
+
+
+def load_existing(path: str) -> pd.DataFrame:
+    if os.path.exists(path):
+        return pd.read_csv(path)
+    return pd.DataFrame()
+
+
+def clean_and_merge(existing: pd.DataFrame, new: pd.DataFrame) -> pd.DataFrame:
+    combined = pd.concat([existing, new], ignore_index=True)
+
+    # Keep only key columns if present (prevents schema drift issues)
+    keep_cols = [c for c in ["url", "title", "content", "seendate", "sourceCountry", "sourceCollection", "domain", "query_used"] if c in combined.columns]
+    combined = combined[keep_cols].copy()
+
+    # Basic quality filters
+    if "url" in combined.columns:
+        combined.drop_duplicates(subset="url", inplace=True)
+        combined.dropna(subset=["url"], inplace=True)
+
+    if "title" in combined.columns:
+        combined.dropna(subset=["title"], inplace=True)
+
+    # content can be missing sometimes; keep if present but not mandatory
+    if "content" in combined.columns:
+        combined["content"] = combined["content"].fillna("")
+
+    return combined
+
+
 def main():
-    """Main function to execute data collection and combination."""
-    gdelt_data = collect_data_from_gdelt()
+    os.makedirs(DATA_DIR, exist_ok=True)
+    ensure_nltk()
 
-    if not gdelt_data.empty:
-        combined_data = combine_and_clean_data(gdelt_data)
-        print(f"Data combined and cleaned. Total articles after combining: {combined_data.shape[0]}")
-    else:
+    queries = DEFAULT_QUERIES
+    sleep_s = float(os.getenv("GDELT_SLEEP_SECONDS", "0.3"))
+
+    existing = load_existing(OUTPUT_CSV)
+    all_new = []
+
+    for q in queries:
+        try:
+            df = fetch_gdelt_articles(q)
+            if not df.empty:
+                all_new.append(df)
+        except requests.HTTPError as e:
+            print(f"[HTTPError] {e} | query='{q}'")
+        except Exception as e:
+            print(f"[Error] {e} | query='{q}'")
+
+        time.sleep(sleep_s)
+
+    if not all_new:
         print("No new articles collected from GDELT.")
+        return
+
+    new_data = pd.concat(all_new, ignore_index=True)
+    combined = clean_and_merge(existing, new_data)
+
+    combined.to_csv(OUTPUT_CSV, index=False)
+    print(f"Saved: {OUTPUT_CSV} | total_rows={combined.shape[0]}")
+
 
 if __name__ == "__main__":
     main()
