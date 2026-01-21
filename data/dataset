@@ -1,1 +1,10 @@
+README
 
+# Dataset Folder
+
+This folder is intentionally empty.
+
+The dataset is not included due to size and licensing constraints.
+Generated data files will appear here when running:
+- scripts/collect_gdelt.py
+- scripts/newsapi_dataset_generator.py
