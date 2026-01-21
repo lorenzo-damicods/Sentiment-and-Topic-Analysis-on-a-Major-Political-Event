@@ -1,0 +1,15 @@
+📘 # 1 — Introduction
+
+This notebook performs sentiment analysis (BERT) and topic modeling (LDA) on news articles related to the 2024 attempted attack on Donald Trump.
+
+The dataset is not stored in this repository due to licensing constraints.
+To generate it locally, run:
+
+``
+export NEWSAPI_KEY="your_key"
+python newsAPI_dataset_generator.py
+python GDELT_API_dataset_generator.py
+
+```
+
+All generated CSV files will appear inside the dataset/ folder.
