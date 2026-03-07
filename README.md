@@ -88,10 +88,10 @@ The central research question: *How did various media outlets cover the event, a
 ```
 ├── data/
 │   └── combined_trump_data_cleaned.csv        # Cleaned dataset (3,700+ articles)
+│   └── GDELT_API_dataset_generator.py             # GDELT data collection script
+│   └── newsAPI_dataset_generator.py               # NewsAPI data collection script
 ├── report/
 │   └── Project_Report.pdf                     # Full academic report
-├── GDELT_API_dataset_generator.py             # GDELT data collection script
-├── newsAPI_dataset_generator.py               # NewsAPI data collection script
 ├── notebook                                   # Jupyter notebook (full pipeline)
 ├── requirements                               # Python dependencies
 └── README.md
