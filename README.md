@@ -1,7 +1,9 @@
+---
+
 # 🗳️ Global Media Framing of the Trump Assassination Attempt
 ### Sentiment and Topic Analysis · BERT + LDA · July 2024
 
-> **Course:** Computational Social Science — University of Trento, Department of Sociology and Social Research  
+> **Course:** Computational Social Science — University of Trento, Department of Sociology and Social Research
 > **Author:** Lorenzo D'Amico (Student ID: 238684)
 
 ---
@@ -86,11 +88,13 @@ The central research question: *How did various media outlets cover the event, a
 
 ```
 ├── data/
-│   └── combined_trump_data_cleaned.csv   # Cleaned dataset (3,700+ articles)
+│   └── combined_trump_data_cleaned.csv        # Cleaned dataset (3,700+ articles)
 ├── report/
-│   └── Project_Report.pdf                # Full academic report
-├── notebook                              # Jupyter notebook (full pipeline)
-├── requirements                          # Python dependencies
+│   └── Project_Report.pdf                     # Full academic report
+├── GDELT_API_dataset_generator.py             # GDELT data collection script
+├── newsAPI_dataset_generator.py               # NewsAPI data collection script
+├── notebook                                   # Jupyter notebook (full pipeline)
+├── requirements                               # Python dependencies
 └── README.md
 ```
 
@@ -121,7 +125,7 @@ matplotlib seaborn          # Visualization
 jupyter notebook notebook
 ```
 
-The notebook is self-contained and runs the full pipeline sequentially:
+The notebook runs the full pipeline sequentially:
 1. Data loading
 2. Text preprocessing
 3. BERT sentiment analysis
@@ -136,7 +140,7 @@ The notebook is self-contained and runs the full pipeline sequentially:
 ## 🔐 API Keys (Not included in repo)
 
 The raw data collection required:
-- **NewsAPI** key → [newsapi.org](https://newsapi.org)
+- **NewsAPI** key → [newsapi.org](https://newsapi.org) — add your key in `newsAPI_dataset_generator.py`
 - **GDELT** access → no key needed (public API)
 
 The cleaned dataset (`combined_trump_data_cleaned.csv`) is already included in `data/` so collection does not need to be re-run.
@@ -150,9 +154,11 @@ The cleaned dataset (`combined_trump_data_cleaned.csv`) is already included in `
 | `notebook` | ✅ Yes | Full analysis pipeline |
 | `data/combined_trump_data_cleaned.csv` | ✅ Yes | Cleaned dataset, needed for reproducibility |
 | `report/Project_Report.pdf` | ✅ Yes | Academic report |
+| `GDELT_API_dataset_generator.py` | ✅ Yes | Data collection script |
+| `newsAPI_dataset_generator.py` | ✅ Yes | Data collection script |
 | `requirements` | ✅ Yes | Dependency list |
 | `README.md` | ✅ Yes | This file |
-| Raw uncleaned API dumps | ❌ No | Too large, redundant |
+| Raw uncleaned API dumps | ❌ No | Redundant |
 | API keys / `.env` files | ❌ No | Security |
 | `__pycache__/`, `.ipynb_checkpoints/` | ❌ No | Auto-generated artifacts |
 | Model weights / cache | ❌ No | Downloaded automatically by HuggingFace at runtime |
@@ -185,7 +191,6 @@ This project was built with BERT + LDA, a solid and reproducible baseline. The N
 
 ## 📚 References
 
-- Hu, E. et al. (2021). LoRA. arXiv:2106.09685
 - Blei, D. et al. (2003). Latent Dirichlet Allocation. JMLR.
 - Bird, S., Klein, E., Loper, E. (2009). Natural Language Processing with Python. O'Reilly.
 - Liu, B. (2012). Sentiment Analysis and Opinion Mining. Morgan & Claypool.
