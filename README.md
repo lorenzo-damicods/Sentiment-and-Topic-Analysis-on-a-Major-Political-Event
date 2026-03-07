@@ -1,4 +1,3 @@
----
 
 # 🗳️ Global Media Framing of the Trump Assassination Attempt
 ### Sentiment and Topic Analysis · BERT + LDA · July 2024
